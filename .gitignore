@@ -16,22 +16,12 @@ dist/
 # Jupyter
 .ipynb_checkpoints/
 
-# Streamlit
+# Streamlit (credenciales, nunca subir)
 .streamlit/secrets.toml
 
 # Variables de entorno / credenciales
 .env
 .env.*
-
-# Datos y artefactos de modelos (se conservan las carpetas via .gitkeep)
-e-visor-app/datos/*
-!e-visor-app/datos/.gitkeep
-e-visor-app/modelos_predictivos/*/*
-!e-visor-app/modelos_predictivos/*/.gitkeep
-*.csv
-*.pkl
-*.joblib
-*.h5
 
 # Editores / IDE
 .vscode/
