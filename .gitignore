@@ -1,0 +1,43 @@
+# Entornos virtuales
+venv/
+env/
+.venv/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+build/
+dist/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Variables de entorno / credenciales
+.env
+.env.*
+
+# Datos y artefactos de modelos (se conservan las carpetas via .gitkeep)
+e-visor-app/datos/*
+!e-visor-app/datos/.gitkeep
+e-visor-app/modelos_predictivos/*/*
+!e-visor-app/modelos_predictivos/*/.gitkeep
+*.csv
+*.pkl
+*.joblib
+*.h5
+
+# Editores / IDE
+.vscode/
+.idea/
+*.swp
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
