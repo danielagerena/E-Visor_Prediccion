@@ -58,9 +58,28 @@ def _etiqueta_confianza(wape):
     return "Limitada"
 
 
+def _cargar_artefactos(carpeta):
+    # Carga el modelo y sus transformadores. Comun a las dos vistas.
+    scaler = joblib.load(os.path.join(carpeta, 'scaler.joblib'))
+    modelo = BlockRNNModel.load(os.path.join(carpeta, 'modelo_blockrnn.pt'))
+    try:
+        modelo.to_cpu()   # forzar CPU en servidores sin GPU
+    except Exception:
+        pass
+    return scaler, modelo
+
+
+def _covariables(serie_mv, scaler_cov):
+    # Construye y escala las covariables de calendario (hora y dia de semana)
+    cov_hora = datetime_attribute_timeseries(serie_mv, attribute='hour')
+    cov_dia = datetime_attribute_timeseries(serie_mv, attribute='dayofweek')
+    cov = cov_hora.stack(cov_dia)
+    return scaler_cov.transform(cov)
+
+
 def predecir_bloque(df, nombre_corto, carpeta_modelos):
-    # Genera la prediccion de 24h del bloque sobre la ventana de test,
-    # usando los artefactos ya guardados. No reentrena nada.
+    # VISTA VALIDACION: se para al final del train y predice el dia siguiente,
+    # que si tiene valores reales para comparar.
     carpeta = os.path.join(carpeta_modelos, nombre_corto)
     serie_mv, serie_en = cargar_serie_bloque(df, nombre_corto)
 
@@ -74,39 +93,25 @@ def predecir_bloque(df, nombre_corto, carpeta_modelos):
     energia_train_val = serie_en[:n_train_val]
     energia_test = serie_en[n_train_val:]
 
-    # Cargar artefactos del bloque
-    scaler = joblib.load(os.path.join(carpeta, 'scaler.joblib'))
-    modelo = BlockRNNModel.load(os.path.join(carpeta, 'modelo_blockrnn.pt'))
+    scaler, modelo = _cargar_artefactos(carpeta)
 
-    # En servidores sin GPU (como Streamlit Cloud) forzar prediccion en CPU
-    try:
-        modelo.to_cpu()
-    except Exception:
-        pass
-
-    # Preparar el train escalado con el MISMO scaler guardado (transform, no fit)
     filler = MissingValuesFiller()
-    train_val_filled = filler.transform(train_val)
-    train_val_s = scaler.transform(train_val_filled)
+    train_val_s = scaler.transform(filler.transform(train_val))
 
-    # Covariables de calendario solo si el bloque las uso
+    # Covariables de calendario si el bloque las uso
     ruta_cov = os.path.join(carpeta, 'scaler_cov.joblib')
     cov_s = None
     if os.path.exists(ruta_cov):
         scaler_cov = joblib.load(ruta_cov)
-        cov_hora = datetime_attribute_timeseries(serie_mv, attribute='hour')
-        cov_dia = datetime_attribute_timeseries(serie_mv, attribute='dayofweek')
-        cov = cov_hora.stack(cov_dia)
-        cov_s = scaler_cov.transform(cov)
+        cov_s = _covariables(serie_mv, scaler_cov)
 
     # Prediccion del horizonte desde el fin del train
     pred_s = modelo.predict(n=HORIZONTE, series=train_val_s, past_covariates=cov_s)
     pred = scaler.inverse_transform(pred_s)
 
-    # Valores reales del test (rellenando huecos igual que en el entrenamiento)
     real = filler.transform(test)[:HORIZONTE]
 
-    # Contexto: ultimos 7 dias del train para mostrar la historia previa
+    # Contexto: ultimos 7 dias reales antes del pronostico
     contexto = train_val[-PASOS_SEMANA:]
     contexto_en = energia_train_val[-PASOS_SEMANA:]
 
@@ -124,17 +129,13 @@ def predecir_bloque(df, nombre_corto, carpeta_modelos):
     # Metricas en vivo (MAPE por variable + WAPE de activepower para la etiqueta)
     metricas = {}
     for var in VARIABLES_MULTIVAR:
-        rv = real[var].values().flatten()
-        pv = pred[var].values().flatten()
-        metricas[var] = _mape(rv, pv)
-    metricas[VAR_ACUMULATIVA] = _mape(
-        real_en.values().flatten(), pred_en.values().flatten()
-    )
+        metricas[var] = _mape(real[var].values().flatten(),
+                              pred[var].values().flatten())
+    metricas[VAR_ACUMULATIVA] = _mape(real_en.values().flatten(),
+                                      pred_en.values().flatten())
 
-    ap_real = real['activepower'].values().flatten()
-    ap_pred = pred['activepower'].values().flatten()
-    wape_ap = _wape(ap_real, ap_pred)
-    confianza = _etiqueta_confianza(wape_ap)
+    wape_ap = _wape(real['activepower'].values().flatten(),
+                    pred['activepower'].values().flatten())
 
     return {
         'contexto': contexto,
@@ -145,54 +146,39 @@ def predecir_bloque(df, nombre_corto, carpeta_modelos):
         'pred_energia': pred_en,
         'metricas': metricas,
         'wape_ap': wape_ap,
-        'confianza': confianza,
+        'confianza': _etiqueta_confianza(wape_ap),
         'usa_covariables': cov_s is not None,
     }
 
+
 def predecir_futuro(df, nombre_corto, carpeta_modelos):
-    # Pronostico real a futuro: usa TODA la historia disponible y predice
-    # las siguientes 24 horas. No hay valores reales para comparar.
+    # VISTA FUTURO: usa TODA la historia disponible y predice las proximas
+    # 24 horas. No hay valores reales para comparar.
     carpeta = os.path.join(carpeta_modelos, nombre_corto)
     serie_mv, serie_en = cargar_serie_bloque(df, nombre_corto)
 
-    # Cargar artefactos
-    scaler = joblib.load(os.path.join(carpeta, 'scaler.joblib'))
-    modelo = BlockRNNModel.load(os.path.join(carpeta, 'modelo_blockrnn.pt'))
-    try:
-        modelo.to_cpu()
-    except Exception:
-        pass
+    scaler, modelo = _cargar_artefactos(carpeta)
 
-    # Usar toda la serie como historia (no se reserva test)
     filler = MissingValuesFiller()
-    serie_filled = filler.transform(serie_mv)
-    serie_s = scaler.transform(serie_filled)
+    serie_s = scaler.transform(filler.transform(serie_mv))
 
     # Covariables de calendario si el bloque las uso
     ruta_cov = os.path.join(carpeta, 'scaler_cov.joblib')
     cov_s = None
     if os.path.exists(ruta_cov):
         scaler_cov = joblib.load(ruta_cov)
-        cov_hora = datetime_attribute_timeseries(serie_mv, attribute='hour')
-        cov_dia = datetime_attribute_timeseries(serie_mv, attribute='dayofweek')
-        cov = cov_hora.stack(cov_dia)
-        cov_s = scaler_cov.transform(cov)
+        cov_s = _covariables(serie_mv, scaler_cov)
 
-    # Para predecir a futuro, las covariables deben cubrir tambien el dia
-    # que viene. Como el calendario es deterministico, se extiende solo.
-    if cov_s is not None:
+        # El calendario debe cubrir tambien el dia que viene. Como es
+        # deterministico (se sabe que dia y hora sera), se construye solo.
         futuro_idx = pd.date_range(
             serie_mv.end_time() + serie_mv.freq,
             periods=HORIZONTE, freq='10min'
         )
         serie_futura = TimeSeries.from_times_and_values(
-            futuro_idx,
-            np.zeros((HORIZONTE, serie_mv.n_components))
+            futuro_idx, np.zeros((HORIZONTE, serie_mv.n_components))
         )
-        cov_h = datetime_attribute_timeseries(serie_futura, attribute='hour')
-        cov_d = datetime_attribute_timeseries(serie_futura, attribute='dayofweek')
-        cov_fut = cov_h.stack(cov_d)
-        cov_fut_s = scaler_cov.transform(cov_fut)
+        cov_fut_s = _covariables(serie_futura, scaler_cov)
         cov_s = cov_s.append(cov_fut_s)
 
     # Prediccion de las proximas 24 horas
@@ -203,11 +189,11 @@ def predecir_futuro(df, nombre_corto, carpeta_modelos):
     contexto = serie_mv[-PASOS_SEMANA:]
     contexto_en = serie_en[-PASOS_SEMANA:]
 
-    # Energia con la deriva
+    # Energia con la deriva, partiendo del ultimo valor real conocido
     d = joblib.load(os.path.join(carpeta, 'modelo_deriva.joblib'))
     pasos = np.arange(1, HORIZONTE + 1)
-    ultimo_real = serie_en.values().flatten()
-    ultimo_real = ultimo_real[~np.isnan(ultimo_real)][-1]
+    valores_reales = serie_en.values().flatten()
+    ultimo_real = valores_reales[~np.isnan(valores_reales)][-1]
     valores_en = ultimo_real + d['pendiente'] * pasos
     fut_idx = pd.date_range(
         serie_en.end_time() + serie_en.freq, periods=HORIZONTE, freq='10min'
@@ -218,8 +204,13 @@ def predecir_futuro(df, nombre_corto, carpeta_modelos):
 
     return {
         'contexto': contexto,
+        'real': None,
         'pred': pred,
         'contexto_energia': contexto_en,
+        'real_energia': None,
         'pred_energia': pred_en,
+        'metricas': None,
+        'wape_ap': None,
+        'confianza': None,
         'usa_covariables': cov_s is not None,
     }
