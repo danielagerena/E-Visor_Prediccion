@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
+import matplotlib as mpl
 
 from predictor import predecir_bloque, VARIABLES_MULTIVAR, VAR_ACUMULATIVA
 
@@ -14,6 +15,15 @@ CARPETA_MODELOS = os.path.join(BASE, "modelos_predictivos")
 FONDO = "#0e1117"
 TEXTO = "#e0e0e0"
 REJILLA = "#333333"
+
+# Forzar que TODO el texto de las graficas sea claro, incluidas las fechas.
+# Se hace en la configuracion global para que ningun elemento quede oscuro.
+mpl.rcParams['text.color'] = TEXTO
+mpl.rcParams['axes.labelcolor'] = TEXTO
+mpl.rcParams['xtick.color'] = TEXTO
+mpl.rcParams['ytick.color'] = TEXTO
+mpl.rcParams['xtick.labelcolor'] = TEXTO
+mpl.rcParams['ytick.labelcolor'] = TEXTO
 
 # Notas para casos especiales, para que los lideres no se confundan
 NOTAS = {
@@ -90,7 +100,7 @@ def graficar(contexto, real, pred, var, titulo, mape):
         etiqueta.set_color(TEXTO)
     for etiqueta in ax.get_yticklabels():
         etiqueta.set_color(TEXTO)
-        
+
     ax.set_xlabel("")
     for spine in ax.spines.values():
         spine.set_color(REJILLA)
