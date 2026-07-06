@@ -148,3 +148,78 @@ def predecir_bloque(df, nombre_corto, carpeta_modelos):
         'confianza': confianza,
         'usa_covariables': cov_s is not None,
     }
+
+def predecir_futuro(df, nombre_corto, carpeta_modelos):
+    # Pronostico real a futuro: usa TODA la historia disponible y predice
+    # las siguientes 24 horas. No hay valores reales para comparar.
+    carpeta = os.path.join(carpeta_modelos, nombre_corto)
+    serie_mv, serie_en = cargar_serie_bloque(df, nombre_corto)
+
+    # Cargar artefactos
+    scaler = joblib.load(os.path.join(carpeta, 'scaler.joblib'))
+    modelo = BlockRNNModel.load(os.path.join(carpeta, 'modelo_blockrnn.pt'))
+    try:
+        modelo.to_cpu()
+    except Exception:
+        pass
+
+    # Usar toda la serie como historia (no se reserva test)
+    filler = MissingValuesFiller()
+    serie_filled = filler.transform(serie_mv)
+    serie_s = scaler.transform(serie_filled)
+
+    # Covariables de calendario si el bloque las uso
+    ruta_cov = os.path.join(carpeta, 'scaler_cov.joblib')
+    cov_s = None
+    if os.path.exists(ruta_cov):
+        scaler_cov = joblib.load(ruta_cov)
+        cov_hora = datetime_attribute_timeseries(serie_mv, attribute='hour')
+        cov_dia = datetime_attribute_timeseries(serie_mv, attribute='dayofweek')
+        cov = cov_hora.stack(cov_dia)
+        cov_s = scaler_cov.transform(cov)
+
+    # Para predecir a futuro, las covariables deben cubrir tambien el dia
+    # que viene. Como el calendario es deterministico, se extiende solo.
+    if cov_s is not None:
+        futuro_idx = pd.date_range(
+            serie_mv.end_time() + serie_mv.freq,
+            periods=HORIZONTE, freq='10min'
+        )
+        serie_futura = TimeSeries.from_times_and_values(
+            futuro_idx,
+            np.zeros((HORIZONTE, serie_mv.n_components))
+        )
+        cov_h = datetime_attribute_timeseries(serie_futura, attribute='hour')
+        cov_d = datetime_attribute_timeseries(serie_futura, attribute='dayofweek')
+        cov_fut = cov_h.stack(cov_d)
+        cov_fut_s = scaler_cov.transform(cov_fut)
+        cov_s = cov_s.append(cov_fut_s)
+
+    # Prediccion de las proximas 24 horas
+    pred_s = modelo.predict(n=HORIZONTE, series=serie_s, past_covariates=cov_s)
+    pred = scaler.inverse_transform(pred_s)
+
+    # Contexto: ultimos 7 dias reales antes del pronostico
+    contexto = serie_mv[-PASOS_SEMANA:]
+    contexto_en = serie_en[-PASOS_SEMANA:]
+
+    # Energia con la deriva
+    d = joblib.load(os.path.join(carpeta, 'modelo_deriva.joblib'))
+    pasos = np.arange(1, HORIZONTE + 1)
+    ultimo_real = serie_en.values().flatten()
+    ultimo_real = ultimo_real[~np.isnan(ultimo_real)][-1]
+    valores_en = ultimo_real + d['pendiente'] * pasos
+    fut_idx = pd.date_range(
+        serie_en.end_time() + serie_en.freq, periods=HORIZONTE, freq='10min'
+    )
+    pred_en = TimeSeries.from_times_and_values(
+        fut_idx, valores_en.reshape(-1, 1), columns=[VAR_ACUMULATIVA]
+    )
+
+    return {
+        'contexto': contexto,
+        'pred': pred,
+        'contexto_energia': contexto_en,
+        'pred_energia': pred_en,
+        'usa_covariables': cov_s is not None,
+    }
