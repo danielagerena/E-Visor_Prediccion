@@ -35,6 +35,17 @@ st.set_page_config(page_title="E-Visor - Prediccion por bloque", layout="wide")
 st.title("E-Visor: prediccion de consumo 24h por bloque")
 st.caption("Comparacion entre el consumo real y el pronostico del modelo, con la historia de la semana previa")
 
+# Nota fija con el contexto del analisis y como leer el error
+st.info(
+    "Periodo analizado: 10 de febrero al 31 de mayo de 2026 "
+    "(con un apagon de mantenimiento de ~12 dias en Semana Santa). "
+    "Prediccion a 24 horas con modelos LSTM, uno por edificio."
+)
+st.warning(
+    "Como leer el error: el MAPE y el WAPE son porcentajes de EQUIVOCACION, "
+    "no de acierto. Mas bajo es mejor. Por ejemplo, un MAPE de 20% significa "
+    "que el modelo se equivoca en promedio un 20%, es decir acierta cerca del 80%."
+)
 
 @st.cache_data
 def cargar_datos():
@@ -73,6 +84,13 @@ def graficar(contexto, real, pred, var, titulo, mape):
 
     # Estilo oscuro
     ax.tick_params(colors=TEXTO, labelsize=8)
+
+    # Forzar color claro tambien en las etiquetas de fecha del eje x
+    for etiqueta in ax.get_xticklabels():
+        etiqueta.set_color(TEXTO)
+    for etiqueta in ax.get_yticklabels():
+        etiqueta.set_color(TEXTO)
+        
     ax.set_xlabel("")
     for spine in ax.spines.values():
         spine.set_color(REJILLA)
