@@ -51,6 +51,7 @@ st.caption("Comparacion entre el consumo real y el pronostico del modelo, con la
 st.info(
     "Periodo analizado: 10 de febrero al 31 de mayo de 2026 "
     "(con un apagon de mantenimiento de ~12 dias en Semana Santa). "
+    "Los datos tienen una periodicidad de 10 minutos. "
     "Prediccion a 24 horas con modelos LSTM, uno por edificio."
 )
 st.warning(
