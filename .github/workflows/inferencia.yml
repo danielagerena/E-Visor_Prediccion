@@ -1,0 +1,46 @@
+name: Prediccion 24 horas
+
+# Cada hora. Volver a predecir cada 15 minutos produciria curvas casi
+# identicas: el horizonte es de 24 horas, no cambia de forma cada cuarto de hora.
+on:
+  schedule:
+    - cron: "5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: inferencia
+  cancel-in-progress: false
+
+jobs:
+  predecir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements-pipeline.txt
+
+      - name: Descargar los modelos en produccion
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p modelos_predictivos
+          gh release download "$(gh release list --limit 1 --json tagName -q '.[0].tagName')" \
+            --dir modelos_predictivos --clobber
+          tar -xzf modelos_predictivos/*.tar.gz -C modelos_predictivos
+
+      - name: Generar predicciones
+        env:
+          EVISOR_DB_URL: ${{ secrets.EVISOR_DB_URL }}
+        run: python -m src.inferir
+
+      - name: Evaluar reglas de alerta
+        env:
+          EVISOR_DB_URL: ${{ secrets.EVISOR_DB_URL }}
+          EVISOR_SMTP_HOST: ${{ secrets.EVISOR_SMTP_HOST }}
+          EVISOR_SMTP_USER: ${{ secrets.EVISOR_SMTP_USER }}
+          EVISOR_SMTP_PASS: ${{ secrets.EVISOR_SMTP_PASS }}
+        run: python -m src.alertas

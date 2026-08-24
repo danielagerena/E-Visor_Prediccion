@@ -1,0 +1,31 @@
+name: Ingesta de mediciones
+
+# Cada 15 minutos. Ojo: en repositorios privados el plan gratuito da 2000
+# minutos al mes y esta cadencia son ~2880 corridas, asi que el repositorio
+# debe ser publico o hay que mover este job a Cloud Run.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ingesta
+  cancel-in-progress: false
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements-pipeline.txt
+      - name: Traer mediciones nuevas
+        env:
+          EVISOR_DB_URL: ${{ secrets.EVISOR_DB_URL }}
+          EVISOR_PROVEEDOR_URL: ${{ secrets.EVISOR_PROVEEDOR_URL }}
+          EVISOR_PROVEEDOR_TOKEN: ${{ secrets.EVISOR_PROVEEDOR_TOKEN }}
+        run: python -m src.ingesta --fuente api

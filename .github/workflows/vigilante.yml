@@ -1,0 +1,28 @@
+name: Vigilante del pipeline
+
+# Una vez al dia. Revisa que haya datos frescos y predicciones recientes, y
+# poda los pronosticos viejos para que la base no crezca sin control.
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+jobs:
+  vigilar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements-pipeline.txt
+      - name: Revisar salud del sistema
+        env:
+          EVISOR_DB_URL: ${{ secrets.EVISOR_DB_URL }}
+          EVISOR_SMTP_HOST: ${{ secrets.EVISOR_SMTP_HOST }}
+          EVISOR_SMTP_USER: ${{ secrets.EVISOR_SMTP_USER }}
+          EVISOR_SMTP_PASS: ${{ secrets.EVISOR_SMTP_PASS }}
+          EVISOR_ALERTAS_A: ${{ secrets.EVISOR_ALERTAS_A }}
+        run: python -m src.vigilante --podar

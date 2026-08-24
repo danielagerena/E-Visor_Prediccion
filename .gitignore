@@ -2,32 +2,29 @@
 venv/
 env/
 .venv/
-ENV/
 
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
 *.egg-info/
-*.egg
-build/
-dist/
 
 # Jupyter
 .ipynb_checkpoints/
 
-# Streamlit (credenciales, nunca subir)
+# Credenciales: nunca al repositorio
 .streamlit/secrets.toml
-
-# Variables de entorno / credenciales
 .env
 .env.*
 
-# Editores / IDE
-.vscode/
-.idea/
-*.swp
+# Base local de la demo
+*.db
+*.sqlite
 
-# Sistema operativo
+# Artefactos de entrenamiento (van a GitHub Releases, no al repositorio)
+artefactos/
+
+# Sistema operativo y editores
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
