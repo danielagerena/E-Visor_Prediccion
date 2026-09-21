@@ -11,7 +11,7 @@ import os
 
 import pandas as pd
 
-from . import calidad, config, db
+from . import calidad, config, db, inferir_v4
 
 TOLERANCIA = 0.02   # el retador puede ser hasta 2 % peor y aun asi entrar
 
@@ -52,10 +52,10 @@ def prueba_de_humo(carpeta, bloque):
     Atrapa el fallo clasico: un modelo que entrena bien pero no se puede volver
     a cargar por un cambio de version de libreria.
     """
-    from . import features, inferir
+    from . import features
 
     df = features.cargar_mediciones(bloque=bloque)
-    salida = inferir.predecir_bloque(df, bloque, carpeta_modelos=os.path.dirname(carpeta))
+    salida = inferir_v4.predecir_bloque(df, bloque, carpeta_modelos=os.path.dirname(carpeta))
     if salida.empty:
         return False, ["La prediccion de prueba vino vacia"]
     for var in config.VARIABLES_MULTIVAR:

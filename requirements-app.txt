@@ -1,0 +1,9 @@
+# Dependencias de la app de Streamlit.
+#
+# No incluye TensorFlow a proposito: la app solo lee los CSV que produjo
+# src/inferir_v4.py. Asi arranca en segundos y no se acerca al limite de
+# memoria de Streamlit Community Cloud.
+
+streamlit>=1.40
+pandas>=2.0
+altair>=5.0

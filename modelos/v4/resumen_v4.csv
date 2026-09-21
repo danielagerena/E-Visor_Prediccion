@@ -1,0 +1,7 @@
+modelo,variable,wape_medio,wape_desv,regla_trivial,v2_global
+global,activepower,24.45,0.27,29.25,26.87
+global,totalpowerfactor,2.4,0.02,6.63,4.14
+global,voltaje_promedio,0.43,0.0,0.54,0.49
+por_bloque,activepower,27.13,0.36,29.25,26.87
+por_bloque,totalpowerfactor,2.87,0.18,6.63,4.14
+por_bloque,voltaje_promedio,0.44,0.0,0.54,0.49
