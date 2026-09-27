@@ -1,0 +1,5 @@
+,activepower,totalpowerfactor,voltaje_promedio,conjunto
+activepower,1.0,-0.088,0.092,0.083
+totalpowerfactor,-0.088,1.0,-0.076,0.439
+voltaje_promedio,0.092,-0.076,1.0,0.226
+conjunto,0.083,0.439,0.226,1.0

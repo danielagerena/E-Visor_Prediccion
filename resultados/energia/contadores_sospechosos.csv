@@ -1,0 +1,3 @@
+bloque,n,potencia_media_W,variabilidad_cv,corr_nivel,corr_incremento,razon_pot_inc,desacuerdo_%,incrementos_cero_%,cero_con_potencia_%,valores_distintos
+B8_AA,27818,3667.625,1.5803,0.1716,0.9664,5.8214,24.501,0.0036,0.0,2870
+B8_CPA,27818,202.4883,1.2399,-0.1908,0.9032,7.413,25.2526,24.1247,1.6536,766
