@@ -94,6 +94,29 @@ def semana_tipica(df, bloques):
     return matriz
 
 
+def exportar_perfiles(crudas, matrices, etiquetas, bloques, ruta):
+    """Guarda la semana tipica de cada bloque con el grupo que le toco.
+
+    Es lo que lee la pagina de perfiles de la app. Se exportan dos columnas de
+    valor: 'forma' es la serie normalizada, que es sobre la que se agrupo, y
+    'valor' es la medida real en sus unidades, que es la que entiende alguien
+    que no vio el analisis.
+    """
+    filas = []
+    for var in VARIABLES:
+        grupo = pd.Series(etiquetas[var], index=bloques)
+        for b in bloques:
+            real = crudas[var].loc[b].to_numpy()
+            forma = matrices[var].loc[b].to_numpy()
+            for i in range(HORAS_SEMANA):
+                filas.append({"variable": var, "bloque": b,
+                              "grupo": int(grupo[b]) + 1,
+                              "hora_semana": i, "dia": DIAS[i // 24],
+                              "hora": i % 24,
+                              "forma": forma[i], "valor": real[i]})
+    pd.DataFrame(filas).round(4).to_csv(ruta, index=False)
+
+
 def normalizar_forma(m):
     """Cada bloque se centra en su propia media y se divide por su desviacion.
 
@@ -305,6 +328,10 @@ def main():
     atipicos.to_csv(f"{SALIDA}/bloques_atipicos.csv", index=False)
     print("\nBLOQUES QUE SE SEPARAN DEL RESTO")
     print(atipicos.to_string(index=False) if len(atipicos) else "  ninguno")
+
+    exportar_perfiles(crudas, matrices, etiquetas, bloques,
+                      f"{SALIDA}/perfiles_semana.csv")
+    print(f"\nPerfiles para la app en {SALIDA}/perfiles_semana.csv")
 
     print("\nGenerando figuras...")
     figura_siluetas(metricas, f"{SALIDA}/siluetas.png")
