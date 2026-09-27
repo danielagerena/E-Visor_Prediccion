@@ -46,6 +46,21 @@ def error_incrementos(det, df):
                          "pred": ap.pred.values / 6.0, "ingenuo": antes})
 
 
+def curva_por_variable(detalle):
+    """Como crece el error a medida que la prediccion se aleja, por variable.
+
+    Es lo que la app usa para dibujar el margen de error alrededor de cada
+    curva. Antes solo existia para la potencia activa, y por eso el margen solo
+    se podia mostrar ahi.
+    """
+    partes = []
+    for v in sorted(detalle.variable.unique()):
+        c = E.error_por_horizonte(detalle, v).reset_index()
+        c.insert(0, "variable", v)
+        partes.append(c)
+    return pd.concat(partes, ignore_index=True)
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--artefactos", default="modelos/v4")
@@ -71,13 +86,21 @@ def main():
     det = E.evaluar(modelo, tablas, lims, bloques, PRUEBA, ficha.get("indice_bloque"))
     det_inc = error_incrementos(det, df)
 
-    tabla = E.tabla_metricas(pd.concat([det, det_inc], ignore_index=True))
+    todo = pd.concat([det, det_inc], ignore_index=True)
+    todo = todo.dropna(subset=["real", "pred", "ingenuo"])
+
+    tabla = E.tabla_metricas(todo)
     tabla["gana"] = np.where(tabla.wape_modelo < tabla.wape_ingenuo, "si", "no")
     tabla = tabla[["bloque", "variable", "wape_modelo", "wape_ingenuo", "gana"]].round(3)
 
     salida = args.salida or os.path.join(args.artefactos, "error_por_bloque.csv")
     tabla.to_csv(salida, index=False)
-    print(f"Guardado en {salida}\n")
+    print(f"Guardado en {salida}")
+
+    curva = curva_por_variable(todo).round(3)
+    ruta_curva = os.path.join(args.artefactos, "error_por_horizonte_variable.csv")
+    curva.to_csv(ruta_curva, index=False)
+    print(f"Guardado en {ruta_curva}\n")
 
     ancha = tabla.pivot(index="bloque", columns="variable", values="wape_modelo")
     print("WAPE % sobre agosto, por bloque y variable")
