@@ -4,10 +4,8 @@ name: Ingesta de mediciones
 # minutos al mes y esta cadencia son ~2880 corridas, asi que el repositorio
 # debe ser publico o hay que mover este job a Cloud Run.
 on:
-  schedule:
-    - cron: "*/15 * * * *"
+  # Sin horario: se reactiva cuando Sistemas entregue el acceso a la API.
   workflow_dispatch:
-
 concurrency:
   group: ingesta
   cancel-in-progress: false

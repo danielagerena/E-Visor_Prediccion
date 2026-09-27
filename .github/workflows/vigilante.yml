@@ -3,10 +3,8 @@ name: Vigilante del pipeline
 # Una vez al dia. Revisa que haya datos frescos y predicciones recientes, y
 # poda los pronosticos viejos para que la base no crezca sin control.
 on:
-  schedule:
-    - cron: "0 12 * * *"
+  # Sin horario: se reactiva cuando Sistemas entregue el acceso a la API.
   workflow_dispatch:
-
 jobs:
   vigilar:
     runs-on: ubuntu-latest

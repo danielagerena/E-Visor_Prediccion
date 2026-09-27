@@ -10,7 +10,7 @@ from pathlib import Path
 # ---------------------------------------------------------------- rutas
 RAIZ = Path(__file__).resolve().parent.parent
 CARPETA_DATOS = Path(os.getenv("EVISOR_DATOS", RAIZ / "datos"))
-CARPETA_MODELOS = Path(os.getenv("EVISOR_MODELOS", RAIZ / "modelos_predictivos"))
+CARPETA_MODELOS = Path(os.getenv("EVISOR_MODELOS", RAIZ / "modelos" / "v4"))
 
 # ---------------------------------------------------------------- conexion
 # Ejemplo Postgres: postgresql+psycopg://usuario:clave@host:5432/evisor
