@@ -1,0 +1,17 @@
+bloque,activepower,totalpowerfactor,voltaje_promedio,conjunto
+B10_ARQ,2,1,0,2
+B12_DERE,2,2,1,2
+B15_BIBL,2,2,1,2
+B17_POLI,1,2,3,1
+B18_PARQ,1,2,3,1
+B3_RECT,0,2,1,2
+B4_PRIM,3,2,1,2
+B5_BACH,3,1,1,2
+B7_CTIC,0,3,1,3
+B7_TAC,0,2,0,2
+B8_AA,0,0,1,0
+B8_CPA,0,0,1,0
+B8_LABS,0,1,1,2
+B9_SFA1,2,2,1,2
+B9_SFA2,2,0,0,0
+ECOVILLA,0,0,2,0

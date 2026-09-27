@@ -1,0 +1,16 @@
+# Dependencias para correr inferir_v4.py fuera de Colab.
+#
+# La version de TensorFlow debe coincidir con la que entreno el modelo (2.20.0
+# en Colab). Los archivos .keras de Keras 3 no cargan con versiones anteriores,
+# y el error que da no dice que el problema es la version.
+#
+# Instalar con:
+#   pip install -r requirements-inferencia.txt
+#
+# tensorflow-cpu pesa la mitad que tensorflow y para predecir es suficiente:
+# el modelo tarda menos de un segundo en CPU. Si falla la instalacion en
+# Windows, cambiar por "tensorflow==2.20.0".
+
+tensorflow-cpu==2.20.0
+numpy>=1.26
+pandas>=2.0

@@ -1,0 +1,20 @@
+name: Pruebas
+
+# Corre en cada push. Son 24 pruebas que tardan menos de un segundo y evitan
+# que un cambio en el preprocesamiento se cuele sin que nadie lo note.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install pandas numpy sqlalchemy pytest
+      - run: python -m pytest tests -q

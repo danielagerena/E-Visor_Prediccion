@@ -1,0 +1,55 @@
+name: Predicciones diarias
+
+on:
+  schedule:
+    # Hora en UTC. 11:00 UTC son las 6:00 a. m. en Colombia.
+    - cron: "0 11 * * *"
+  # Boton "Run workflow" para correrlo a mano cuando se quiera
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  predecir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-inferencia.txt
+
+      # Mientras no hay datos en vivo se usa el reloj simulado. Cuando Sistemas
+      # entregue la conexion, este paso se reemplaza por la descarga de datos.
+      - name: Leer el instante simulado
+        id: reloj
+        run: |
+          if [ -f datos/reloj_simulado.txt ]; then
+            echo "origen=$(python scripts/reloj_simulado.py leer)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Predecir
+        run: |
+          ARGS="--artefactos modelos/v4 --csv datos/datos_preprocesados_10min.csv --salida datos/predicciones.csv --salida-historia datos/historia_reciente.csv --archivo datos/archivo"
+          if [ -n "${{ steps.reloj.outputs.origen }}" ]; then
+            python -m src.inferir_v4 $ARGS --origen "${{ steps.reloj.outputs.origen }}"
+          else
+            python -m src.inferir_v4 $ARGS
+          fi
+
+      - name: Avanzar el reloj simulado
+        if: steps.reloj.outputs.origen != ''
+        run: python scripts/reloj_simulado.py avanzar
+
+      - name: Guardar en el repositorio
+        run: |
+          git config user.name "e-visor-bot"
+          git config user.email "e-visor-bot@users.noreply.github.com"
+          git add datos/predicciones.csv datos/historia_reciente.csv datos/archivo datos/reloj_simulado.txt 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "Predicciones automaticas $(date -u +%F)"
+          git push

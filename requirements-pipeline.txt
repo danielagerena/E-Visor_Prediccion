@@ -1,0 +1,12 @@
+# Dependencias del PIPELINE (ingesta, inferencia, entrenamiento).
+# Solo se instalan en los jobs de GitHub Actions y en la maquina de
+# entrenamiento, nunca en la app.
+pandas>=2.0
+numpy>=1.26
+sqlalchemy>=2.0
+psycopg[binary]>=3.1
+requests>=2.31
+joblib>=1.3
+scikit-learn>=1.4
+darts[torch]>=0.30
+pytest>=8.0

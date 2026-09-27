@@ -1,0 +1,10 @@
+# Dependencias del analisis de clustering (scripts/clustering.py).
+# No necesita TensorFlow: el clustering no usa el modelo predictivo.
+#
+#   pip install -r requirements-analisis.txt
+
+pandas>=2.0
+numpy>=1.26
+scikit-learn>=1.4
+scipy>=1.11
+matplotlib>=3.8

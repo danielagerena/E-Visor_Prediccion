@@ -1,0 +1,8 @@
+# Identidad visual del tablero.
+# PENDIENTE: confirmar los codigos con el manual de marca de la UPB antes de publicar.
+[theme]
+primaryColor = "#00723F"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F1F4F1"
+textColor = "#1B241F"
+font = "sans serif"

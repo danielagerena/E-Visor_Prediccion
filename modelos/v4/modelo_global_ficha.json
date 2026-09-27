@@ -1,0 +1,105 @@
+{
+  "version": "v4.0.0",
+  "tipo": "LSTM multivariable multistep, modo global",
+  "entrenado_en": "2026-09-17T20:05:13.599373",
+  "bloques": [
+    "B10_ARQ",
+    "B12_DERE",
+    "B15_BIBL",
+    "B17_POLI",
+    "B18_PARQ",
+    "B3_RECT",
+    "B4_PRIM",
+    "B5_BACH",
+    "B7_CTIC",
+    "B7_TAC",
+    "B8_AA",
+    "B8_CPA",
+    "B8_LABS",
+    "B9_SFA1",
+    "B9_SFA2",
+    "ECOVILLA"
+  ],
+  "periodos_clase": [
+    [
+      "2026-02-10",
+      "2026-03-30"
+    ],
+    [
+      "2026-04-07",
+      "2026-05-30"
+    ],
+    [
+      "2026-07-14",
+      "2026-09-01"
+    ]
+  ],
+  "rangos_entrenamiento": [
+    [
+      "2026-02-10",
+      "2026-03-30"
+    ],
+    [
+      "2026-04-07",
+      "2026-05-16"
+    ],
+    [
+      "2026-07-14",
+      "2026-08-01"
+    ]
+  ],
+  "rango_validacion": [
+    "2026-05-16",
+    "2026-05-30"
+  ],
+  "rango_prueba": [
+    "2026-08-01",
+    "2026-09-01"
+  ],
+  "largo_entrada": 288,
+  "horizonte": 144,
+  "paso_muestreo": 6,
+  "semillas": [
+    42,
+    7,
+    123
+  ],
+  "semilla_guardada": 42,
+  "unidades": 128,
+  "bloques_marcados": [
+    "B8_CPA"
+  ],
+  "wape_agosto": {
+    "activepower": 24.45,
+    "totalpowerfactor": 2.4,
+    "voltaje_promedio": 0.43
+  },
+  "regla_trivial": {
+    "activepower": 29.249,
+    "totalpowerfactor": 6.626,
+    "voltaje_promedio": 0.541
+  },
+  "versiones": {
+    "tensorflow": "2.20.0",
+    "numpy": "2.1.3",
+    "pandas": "2.2.3"
+  },
+  "indice_bloque": {
+    "B10_ARQ": 0,
+    "B12_DERE": 1,
+    "B15_BIBL": 2,
+    "B17_POLI": 3,
+    "B18_PARQ": 4,
+    "B3_RECT": 5,
+    "B4_PRIM": 6,
+    "B5_BACH": 7,
+    "B7_CTIC": 8,
+    "B7_TAC": 9,
+    "B8_AA": 10,
+    "B8_CPA": 11,
+    "B8_LABS": 12,
+    "B9_SFA1": 13,
+    "B9_SFA2": 14,
+    "ECOVILLA": 15
+  }
+}
