@@ -44,6 +44,13 @@ NOMBRES = {POT: "Potencia activa", FP: "Factor de potencia",
            VOL: "Voltaje promedio"}
 FORMATO = {POT: ".2f", FP: ".2f", VOL: ".2f"}
 
+# Unidades reales, para la comparacion entre edificios de un mismo grupo. Ahi
+# cada linea es un edificio concreto, no un promedio, asi que mostrar la medida
+# en sus unidades no engana y es lo que espera ver un ingeniero.
+UNIDAD = {POT: "kW", FP: "", VOL: "V"}
+ESCALA = {POT: 1 / 1000, FP: 1.0, VOL: 1.0}
+FORMATO_REAL = {POT: ",.1f", FP: ".3f", VOL: ".1f"}
+
 PREGUNTA = {
     POT: "Qué edificios consumen con el mismo ritmo a lo largo de la semana.",
     FP: "Qué edificios comparten el mismo comportamiento de calidad de energía.",
@@ -179,8 +186,8 @@ eje_x = alt.X("hora_semana:Q", title=None,
                             tickColor="#c3c2b7", labelColor=TINTA_TENUE))
 
 
-def eje_y(titulo=TITULO_Y):
-    return alt.Y("forma:Q", title=titulo, scale=alt.Scale(zero=False),
+def eje_y(titulo=TITULO_Y, campo="forma"):
+    return alt.Y(f"{campo}:Q", title=titulo, scale=alt.Scale(zero=False),
                  axis=alt.Axis(gridColor=REJILLA, domain=False, ticks=False,
                                labelColor=TINTA_TENUE, titleColor=TINTA))
 
@@ -270,12 +277,27 @@ with cb:
         help=f"Hasta {MAX_COMPARAR} a la vez, para que cada uno conserve su "
              "propio color.")
 
+# Aqui cada linea es un edificio concreto, asi que las unidades reales no
+# enganan, y ademas muestran algo que la vista normalizada esconde: dos
+# edificios pueden tener el mismo ritmo y consumir uno el triple del otro.
+etiqueta_real = (f"{NOMBRES[var]} en {UNIDAD[var]}" if UNIDAD[var]
+                 else NOMBRES[var])
+modo = st.radio("Escala", [etiqueta_real, "Comparado con lo normal de cada edificio"],
+                horizontal=True, label_visibility="collapsed")
+real = modo == etiqueta_real
+campo = "valor" if real else "forma"
+titulo = (f"{NOMBRES[var]} ({UNIDAD[var]})" if real and UNIDAD[var]
+          else NOMBRES[var] if real else TITULO_Y)
+formato = FORMATO_REAL[var] if real else FORMATO[var]
+
 if not elegidos:
     st.info("Elige al menos un edificio para comparar.")
 else:
-    promedio = (d[d.grupo == grupo].groupby("hora_semana", as_index=False)
-                .forma.mean().assign(serie="Promedio del grupo"))
-    unos = (d[d.bloque.isin(elegidos)][["bloque", "hora_semana", "forma"]]
+    dv = d.copy()
+    dv["valor"] = dv.valor * ESCALA[var]
+    promedio = (dv[dv.grupo == grupo].groupby("hora_semana", as_index=False)
+                [campo].mean().assign(serie="Promedio del grupo"))
+    unos = (dv[dv.bloque.isin(elegidos)][["bloque", "hora_semana", campo]]
             .rename(columns={"bloque": "serie"}))
     junto = pd.concat([promedio, unos], ignore_index=True)
 
@@ -287,19 +309,27 @@ else:
                           labelColor=TINTA, labelLimit=0))
 
     comparacion = alt.Chart(junto).mark_line().encode(
-        x=eje_x, y=eje_y(), color=color_bloque,
+        x=eje_x, y=eje_y(titulo, campo), color=color_bloque,
         strokeWidth=alt.condition(alt.datum.serie == "Promedio del grupo",
                                   alt.value(3), alt.value(1.6)),
         strokeDash=alt.condition(alt.datum.serie == "Promedio del grupo",
                                  alt.value([6, 4]), alt.value([1, 0])),
         tooltip=[alt.Tooltip("serie:N", title=""),
-                 alt.Tooltip("forma:Q", title=TITULO_Y, format=FORMATO[var])])
+                 alt.Tooltip(f"{campo}:Q", title=titulo, format=formato)])
 
     st.altair_chart(
         alt.layer(separadores, comparacion).properties(height=300)
         .configure_view(strokeWidth=0),
         width="stretch")
-    st.caption("La línea gris punteada es el promedio del grupo.")
+    if real:
+        st.caption("La línea gris punteada es el promedio del grupo. Ojo con "
+                   "ella en esta escala: mezcla edificios de tamaños distintos, "
+                   "así que sirve de referencia pero no describe a ninguno en "
+                   "particular.")
+    else:
+        st.caption("Cada edificio comparado consigo mismo. La línea gris "
+                   "punteada es el promedio del grupo. En esta escala se ve si "
+                   "comparten el ritmo, sin que el tamaño estorbe.")
 
 
 # ---------------------------------------------------------------------------
