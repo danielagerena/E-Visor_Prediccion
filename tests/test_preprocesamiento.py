@@ -68,7 +68,12 @@ def test_rollover_del_contador_no_inventa_consumo():
 
 
 def test_huecos_largos_no_se_interpolan():
-    """Un apagon de dias debe quedar como vacio, no como una linea recta."""
+    """Un apagon de dias debe quedar como vacio, no como una linea recta.
+
+    La version anterior de esta prueba solo exigia que quedara algun nulo, y
+    eso se cumplia aunque el relleno escribiera 12 horas de recta en el borde
+    del hueco. Aqui se exige que el hueco quede intacto por completo.
+    """
     ts = pd.date_range("2026-06-01", periods=200, freq="10min")
     valores = np.arange(200, dtype=float)
     valores[20:150] = np.nan                      # hueco de mas de 12 horas
@@ -78,7 +83,35 @@ def test_huecos_largos_no_se_interpolan():
         "activepower": valores,
     })
     out = pre.interpolar_huecos_cortos(df, variables=["activepower"])
-    assert out["activepower"].isna().sum() > 0
+    assert out["activepower"].iloc[20:150].isna().all()
+    assert out["activepower"].isna().sum() == 130
+
+
+def test_el_hueco_largo_no_se_rellena_por_el_borde():
+    """Caso concreto del defecto: con limite=4, un hueco de 8 no recibe nada."""
+    valores = [10.0] + [np.nan] * 3 + [20.0] + [np.nan] * 8 + [100.0]
+    df = pd.DataFrame({
+        config.COL_EDIFICIO: "SmartMeter_SM_B10_ARQ",
+        config.COL_TIEMPO: pd.date_range("2026-06-01", periods=len(valores),
+                                         freq="10min"),
+        "activepower": valores,
+    })
+    out = pre.interpolar_huecos_cortos(df, limite=4, variables=["activepower"])
+    assert out["activepower"].iloc[1:4].notna().all()      # hueco corto, relleno
+    assert out["activepower"].iloc[5:13].isna().all()      # hueco largo, intacto
+
+
+def test_la_cola_de_la_serie_no_se_propaga():
+    """Despues de la ultima medicion no se inventa nada."""
+    valores = [10.0, 20.0, 30.0] + [np.nan] * 6
+    df = pd.DataFrame({
+        config.COL_EDIFICIO: "SmartMeter_SM_B10_ARQ",
+        config.COL_TIEMPO: pd.date_range("2026-06-01", periods=len(valores),
+                                         freq="10min"),
+        "activepower": valores,
+    })
+    out = pre.interpolar_huecos_cortos(df, limite=72, variables=["activepower"])
+    assert out["activepower"].iloc[3:].isna().all()
 
 
 def test_huecos_cortos_si_se_interpolan():

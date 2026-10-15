@@ -1,0 +1,17 @@
+# Lo unico que hay que instalar en el servidor del SEC para generar el
+# pronostico diario leyendo de la base de datos.
+#
+# La version de TensorFlow debe coincidir con la del entrenamiento (2.20.0).
+# Los archivos .keras de Keras 3 no cargan con versiones anteriores, y el
+# error que da no menciona la version.
+#
+#   pip install -r requirements-servidor.txt
+#   python -m src.inferir_v4 --artefactos modelos/v4 --desde-bd --guardar-bd
+#
+# psycopg sirve tanto para PostgreSQL como para CrateDB, que habla el mismo
+# protocolo.
+tensorflow-cpu==2.20.0
+numpy>=1.26
+pandas>=2.0
+sqlalchemy>=2.0
+psycopg[binary]>=3.1

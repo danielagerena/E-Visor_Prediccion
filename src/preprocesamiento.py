@@ -118,6 +118,14 @@ def interpolar_huecos_cortos(df, limite=None, variables=None):
     Un hueco de una hora se puede interpolar sin mentir. El apagon de ocho dias
     no: ahi se deja el vacio para que el modelo no aprenda una linea recta que
     nunca ocurrio.
+
+    No se usa el parametro `limit` de pandas. Ese parametro no descarta las
+    rachas de nulos mas largas que el limite: rellena las primeras N de cada
+    racha y deja el resto, de modo que un apagon de ocho dias recibiria 12
+    horas de recta en su borde. Aqui se mide el largo de cada racha primero y
+    solo se rellenan las que caben dentro del limite. `limit_area="inside"`
+    evita ademas que el ultimo valor medido se propague hacia el final de la
+    serie.
     """
     limite = limite or config.LIMITE_INTERPOLACION_PASOS
     variables = variables or [v for v in config.VARIABLES_TODAS if v in df.columns]
@@ -126,7 +134,12 @@ def interpolar_huecos_cortos(df, limite=None, variables=None):
     for _, grupo in df.groupby(COL_EDIFICIO):
         g = grupo.sort_values(COL_TIEMPO).copy()
         for var in variables:
-            g[var] = g[var].interpolate(method="linear", limit=limite)
+            s = g[var]
+            vacio = s.isna()
+            racha = (vacio != vacio.shift()).cumsum()
+            largo = vacio.groupby(racha).transform("sum").where(vacio, 0)
+            relleno = s.interpolate(method="linear", limit_area="inside")
+            g[var] = s.where(~(vacio & (largo <= limite)), relleno)
         partes.append(g)
     return pd.concat(partes, ignore_index=True)
 
