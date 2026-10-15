@@ -1,12 +1,15 @@
-# Dependencias del PIPELINE (ingesta, inferencia, entrenamiento).
-# Solo se instalan en los jobs de GitHub Actions y en la maquina de
-# entrenamiento, nunca en la app.
+# Dependencias del PIPELINE (ingesta, preprocesamiento, inferencia fuera de
+# la app). Se instalan en los jobs automaticos y en el servidor, nunca en la
+# app de Streamlit.
+#
+# Ya no incluye darts[torch]: esa era la libreria de la arquitectura anterior
+# y arrastraba PyTorch completo. El modelo actual es Keras, de modo que lo que
+# hace falta es TensorFlow, y en la version exacta con la que se entreno.
 pandas>=2.0
 numpy>=1.26
+tensorflow-cpu==2.20.0
 sqlalchemy>=2.0
 psycopg[binary]>=3.1
 requests>=2.31
-joblib>=1.3
 scikit-learn>=1.4
-darts[torch]>=0.30
 pytest>=8.0

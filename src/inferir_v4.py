@@ -30,6 +30,74 @@ VAR_INCREMENTO = "activeenergyimport_incremento"
 PASOS_POR_HORA = 6
 TECHO_CONTADOR = 100_000_000   # el contador vuelve a cero al llegar aqui
 
+# Dias de historia que se leen en cada corrida. El modelo mira siete dias hacia
+# atras y busca hasta cuatro semanas si la semana anterior esta incompleta.
+DIAS_HISTORIA = 31
+
+
+def _modulos_bd():
+    """Importa config y db solo cuando hace falta la base de datos.
+
+    Asi quien corre la inferencia desde un CSV no necesita tener instalado
+    SQLAlchemy.
+    """
+    try:
+        from . import config, db
+    except ImportError:
+        from src import config, db
+    return config, db
+
+
+def cargar_desde_bd(dias=DIAS_HISTORIA):
+    """Lee la rejilla de 10 minutos de la tabla mediciones.
+
+    Devuelve el mismo DataFrame que E.cargar_datos produce a partir del CSV,
+    de modo que el resto del proceso no distingue de donde vinieron los datos.
+    """
+    config, db = _modulos_bd()
+    ultima = db.ultima_medicion()
+    if ultima is None:
+        raise SystemExit("La tabla mediciones esta vacia. Correr primero "
+                         "src.cargar_historico o src.ingesta.")
+    desde = (ultima - pd.Timedelta(days=dias)).to_pydatetime()
+    df = db.consultar(
+        "SELECT * FROM mediciones WHERE ts >= :desde ORDER BY entity_id, ts",
+        {"desde": desde},
+    )
+    df = df.rename(columns={config.COL_TIEMPO: "timestamp"})
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df["bloque"] = df[config.COL_EDIFICIO].str.replace(E.PREFIJO, "",
+                                                       regex=False)
+    return df.sort_values(["bloque", "timestamp"])
+
+
+def guardar_en_bd(pred, ficha):
+    """Escribe las predicciones en la tabla predicciones.
+
+    La tabla guarda una fila por instante predicho con las variables en
+    columnas, mientras que el proceso las produce en formato largo. Guardarlas
+    es lo que permitira despues comparar cada prediccion contra lo que
+    realmente ocurrio, que es la base de la deteccion de anomalias.
+    """
+    config, db = _modulos_bd()
+    columnas = ["activepower", "totalpowerfactor", "voltaje_promedio",
+                COL_CONTADOR]
+    ancha = (pred[pred.variable.isin(columnas)]
+             .pivot_table(index=["bloque", "origen", "ts"], columns="variable",
+                          values="valor")
+             .reset_index())
+    ancha.columns.name = None
+    ancha["entity_id"] = config.PREFIJO_MEDIDOR + ancha["bloque"]
+    ancha = ancha.rename(columns={"origen": "ts_origen", "ts": "ts_objetivo"})
+    ancha["modelo_version"] = str(ficha.get("version", "desconocida"))
+    ancha["generado_en"] = pd.Timestamp.now(tz="UTC").tz_localize(None)
+
+    salida = ["entity_id", "ts_origen", "ts_objetivo"] + \
+             [c for c in columnas if c in ancha.columns] + \
+             ["modelo_version", "generado_en"]
+    return db.upsert(ancha[salida], "predicciones",
+                     ["entity_id", "ts_origen", "ts_objetivo"])
+
 
 def _ventana_semana(tabla, i_ini, i_fin):
     """Devuelve la referencia de la semana anterior y como se obtuvo.
@@ -187,7 +255,12 @@ def main():
     p = argparse.ArgumentParser(description="Predicciones de 24 horas, modelo global v4")
     p.add_argument("--artefactos", required=True, help="carpeta con el modelo y los limites")
     p.add_argument("--nombre", default="modelo_produccion")
-    p.add_argument("--csv", required=True, help="CSV preprocesado de 10 minutos")
+    p.add_argument("--csv", default=None,
+                   help="CSV preprocesado de 10 minutos")
+    p.add_argument("--desde-bd", action="store_true",
+                   help="leer la historia de la tabla mediciones en vez de un CSV")
+    p.add_argument("--guardar-bd", action="store_true",
+                   help="escribir las predicciones en la tabla predicciones")
     p.add_argument("--origen", default=None,
                    help="instante de origen; por defecto el ultimo dato disponible")
     p.add_argument("--salida", default=None, help="CSV donde escribir las predicciones")
@@ -200,6 +273,9 @@ def main():
                         "prediccion, para compararla despues con lo medido")
     args = p.parse_args()
 
+    if bool(args.csv) == bool(args.desde_bd):
+        raise SystemExit("Indicar --csv o --desde-bd, uno de los dos.")
+
     warnings.filterwarnings("ignore")
 
     print("Cargando artefactos...")
@@ -209,10 +285,13 @@ def main():
           f"entrada {ficha.get('largo_entrada')} pasos")
 
     print("Cargando historia...")
-    df = E.cargar_datos(args.csv)
+    if args.desde_bd:
+        df = cargar_desde_bd()
+    else:
+        df = E.cargar_datos(args.csv)
     # Solo hace falta el ultimo mes: la ventana mas larga que mira el modelo son
     # siete dias. Leer mas es tiempo perdido en produccion.
-    corte = df.timestamp.max() - pd.Timedelta(days=30)
+    corte = df.timestamp.max() - pd.Timedelta(days=DIAS_HISTORIA)
     df = df[df.timestamp >= corte]
     bloques = [b for b in sorted(df.bloque.unique()) if b in lims]
     tablas = {b: E.tabla_bloque(df, b) for b in bloques}
@@ -248,6 +327,10 @@ def main():
     if args.salida and not pred.empty:
         pred.to_csv(args.salida, index=False)
         print(f"Guardado en {args.salida}")
+
+    if args.guardar_bd and not pred.empty:
+        n = guardar_en_bd(pred, ficha)
+        print(f"Guardadas {n:,} filas en la tabla predicciones")
 
     if args.archivo and not pred.empty:
         import os

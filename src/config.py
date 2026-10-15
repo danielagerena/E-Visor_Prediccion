@@ -32,13 +32,14 @@ VAR_INCREMENTO = "activeenergyimport_incremento"
 VARIABLES_TODAS = VARIABLES_MULTIVAR + [VAR_ACUMULATIVA, VAR_INCREMENTO]
 
 # ---------------------------------------------------------------- modelo
+# La configuracion real del modelo en produccion NO esta aqui. Vive en
+# modelos/v4/modelo_produccion_ficha.json, que registra con que valores se
+# entreno efectivamente, y en los valores por omision de
+# evisor_lstm.construir_modelo. Duplicarla aqui solo crea dos verdades.
 FRECUENCIA = "10min"
 PASOS_HORA = 6
 PASOS_DIA = 144
-HORIZONTE = 144          # 144 pasos de 10 min = 24 horas
-INPUT_CHUNK = 288        # 48 horas de historia como contexto
 PASOS_SEMANA = 7 * PASOS_DIA
-PORCENTAJE_TEST = 0.15
 DIAS_VENTANA_DERIVA = 14
 SEED = 42
 
@@ -48,31 +49,9 @@ BLOQUES = [
     "B8_AA", "B8_CPA", "B8_LABS", "B9_SFA1", "B9_SFA2", "ECOVILLA",
 ]
 
-CONFIG_BASE = {
-    "hidden_dim": 50,
-    "n_rnn_layers": 2,
-    "dropout": 0.1,
-    "n_epochs": 100,
-    "batch_size": 256,
-    "patience": 10,
-    "usar_covariables_calendario": False,
-}
-
-# Bitacora de excepciones: solo los bloques que necesitan algo distinto
-OVERRIDES = {
-    "B12_DERE": {"usar_covariables_calendario": True},
-    "B5_BACH": {"usar_covariables_calendario": True},
-    "ECOVILLA": {"usar_covariables_calendario": True},
-    "B9_SFA2": {"usar_covariables_calendario": True},
-    "B8_AA": {"usar_covariables_calendario": True},
-}
-
-
-def config_bloque(nombre_corto):
-    """Devuelve la configuracion efectiva de un bloque."""
-    cfg = dict(CONFIG_BASE)
-    cfg.update(OVERRIDES.get(nombre_corto, {}))
-    return cfg
+# Excluido de los analisis por decision del equipo de lideres, hasta que su
+# medidor sea intervenido. Ver el informe metodologico, seccion 4.3.1.
+BLOQUES_EXCLUIDOS = ["B8_CPA"]
 
 
 def nombre_completo(nombre_corto):

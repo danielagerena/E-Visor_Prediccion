@@ -12,7 +12,7 @@ Entrada:  el CSV que produce el notebook 1 (datos_crudos_consolidados.csv)
 Salida:   el CSV de 10 minutos listo para subir al repositorio
 
 Uso:
-    python -m scripts.preprocesar_crudo \
+    python -m src.preprocesar_crudo \
         --entrada datos/datos_crudos_consolidados.csv \
         --salida  datos/datos_preprocesados_10min.csv
 """

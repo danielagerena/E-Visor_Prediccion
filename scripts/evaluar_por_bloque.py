@@ -24,6 +24,12 @@ from src import evisor_lstm as E  # noqa: E402
 VAR_INC = "activeenergyimport_incremento"
 PRUEBA = ("2026-08-01", "2026-09-01")
 
+# Tramos de agosto donde el dato no es medido sino interpolado: el relleno de
+# huecos cortos rellena tambien las primeras 12 horas de los huecos largos.
+# Los detecto diagnostico_interpolacion.py. Afectan a los 16 bloques.
+VENTANAS_INVENTADAS = [("2026-08-13 01:10", "2026-08-13 13:00"),
+                       ("2026-08-20 01:10", "2026-08-20 13:00")]
+
 
 def error_incrementos(det, df):
     """Error de la energia cada 10 minutos.
@@ -42,8 +48,39 @@ def error_incrementos(det, df):
     antes = medido.reindex(pd.MultiIndex.from_arrays(
         [ap.bloque, ap.ts - pd.Timedelta(days=7)])).values
     return pd.DataFrame({"bloque": ap.bloque.values, "variable": VAR_INC,
-                         "paso": ap.paso.values, "real": real,
-                         "pred": ap.pred.values / 6.0, "ingenuo": antes})
+                         "origen": ap.origen.values, "paso": ap.paso.values,
+                         "real": real, "pred": ap.pred.values / 6.0,
+                         "ingenuo": antes})
+
+
+def quitar_inventados(todo):
+    """Deja fuera las filas cuyo valor real no fue medido sino interpolado.
+
+    Se descartan dos casos: cuando el instante que se evalua cae en un tramo
+    inventado, y cuando el que cae ahi es el de la semana anterior, porque ese
+    es el valor con el que se compara la regla trivial.
+    """
+    ts = todo.origen + pd.to_timedelta(todo.paso * 10, unit="min")
+    malo = pd.Series(False, index=todo.index)
+    for a, b in VENTANAS_INVENTADAS:
+        a, b = pd.Timestamp(a), pd.Timestamp(b)
+        malo |= ts.between(a, b)
+        malo |= (ts + pd.Timedelta(days=7)).between(a, b)
+    return todo[~malo], int(malo.sum())
+
+
+def wape_agrupado(todo):
+    """WAPE del conjunto: error total sobre consumo total, por variable."""
+    g = todo.groupby("variable")
+    return pd.DataFrame({
+        "wape_modelo": g.apply(
+            lambda x: (x.real - x.pred).abs().sum() / x.real.abs().sum() * 100,
+            include_groups=False),
+        "wape_ingenuo": g.apply(
+            lambda x: (x.real - x.ingenuo).abs().sum() / x.real.abs().sum()
+            * 100, include_groups=False),
+        "filas": g.size(),
+    })
 
 
 def curva_por_variable(detalle):
@@ -67,6 +104,10 @@ def main():
     p.add_argument("--nombre", default="modelo_global")
     p.add_argument("--csv", default="datos/datos_preprocesados_10min.csv")
     p.add_argument("--salida", default=None)
+    p.add_argument("--salida-limpia", default=None,
+                   help="CSV con el error calculado sin los tramos interpolados")
+    p.add_argument("--sin-bloques", default="B8_CPA",
+                   help="Bloques que se dejan fuera del WAPE del conjunto")
     args = p.parse_args()
     warnings.filterwarnings("ignore")
 
@@ -105,6 +146,32 @@ def main():
     ancha = tabla.pivot(index="bloque", columns="variable", values="wape_modelo")
     print("WAPE % sobre agosto, por bloque y variable")
     print(ancha.round(2).to_string())
+
+    # Comparacion de escenarios
+    limpio, quitadas = quitar_inventados(todo)
+    print(f"\nFilas descartadas por caer en tramos interpolados: {quitadas:,}"
+          f" de {len(todo):,} ({quitadas / len(todo) * 100:.2f} %)")
+
+    fuera = [b.strip() for b in args.sin_bloques.split(",") if b.strip()]
+    sin = todo[~todo.bloque.isin(fuera)]
+    sin_limpio = limpio[~limpio.bloque.isin(fuera)]
+
+    escenarios = [("todo el mes, los 16 bloques", todo),
+                  ("sin los tramos interpolados", limpio),
+                  (f"sin {', '.join(fuera)}", sin),
+                  (f"sin tramos interpolados y sin {', '.join(fuera)}",
+                   sin_limpio)]
+    for nombre, marco in escenarios:
+        if len(marco):
+            print(f"\nWAPE % del conjunto, {nombre}")
+            print(wape_agrupado(marco).round(3).to_string())
+
+    if args.salida_limpia:
+        t = E.tabla_metricas(limpio)
+        t["gana"] = np.where(t.wape_modelo < t.wape_ingenuo, "si", "no")
+        t[["bloque", "variable", "wape_modelo", "wape_ingenuo", "gana"]].round(
+            3).to_csv(args.salida_limpia, index=False)
+        print(f"\nGuardado en {args.salida_limpia}")
 
 
 if __name__ == "__main__":
